@@ -1,0 +1,16 @@
+<package>
+  <description brief="youbot_android">
+
+     youbot_android
+
+  </description>
+  <author>rhama</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/youbot_android</url>
+
+  <depend package="rospy" />
+
+</package>
+
+
