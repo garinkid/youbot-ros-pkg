@@ -37,67 +37,81 @@
 *
 ******************************************************************************/
 
-#include <iostream>
-#include <assert.h>
+#include "YouBotConfiguration.h"
 
-#include "ros/ros.h"
-#include "trajectory_msgs/JointTrajectory.h"
+namespace youBot {
 
+YouBotBaseConfiguration::YouBotBaseConfiguration() {
+	youBotBase = 0;
 
-using namespace std;
+	/* provide some default values for the joint names (might be overwritten) */
+	/*
+	 *  numbering of youBot wheels:
+	 *
+	 *    FRONT
+	 *
+	 * 1 ---+--- 2
+	 *      |
+	 *      |
+	 *      |
+	 *      |
+	 * 3 ---+--- 4
+	 *
+	 *    BACK
+	 */
+	wheelNames.clear();
+	wheelNames.push_back("wheel_joint_fl"); //wheel #1
+	wheelNames.push_back("wheel_joint_fr"); //wheel #2
+	wheelNames.push_back("wheel_joint_bl"); //wheel #3
+	wheelNames.push_back("wheel_joint_br"); //wheel #4
+}
 
-int main(int argc, char **argv)
-{
-
-	ros::init(argc, argv, "youbot_arm_test");
-	ros::NodeHandle n;
-	ros::Publisher armJointTrajectoryPublisher;
-
-	armJointTrajectoryPublisher = n.advertise<trajectory_msgs::JointTrajectory>("arm_controller/command", 1);
-
-	ros::Rate rate(20); //Hz
-	double readValue;
-	static const int numberOfJoints = 5;
-	while (n.ok()){
-
-		trajectory_msgs::JointTrajectory armCommand;
-		trajectory_msgs::JointTrajectoryPoint desiredConfiguration;
-
-		desiredConfiguration.positions.resize(numberOfJoints + 1);
-		armCommand.joint_names.resize(numberOfJoints + 1);
-
-
-		std::stringstream jointName;
-		for (int i = 0; i < numberOfJoints; ++i) {
-			cout << "Please type in value for joint " << i+1 << endl;
-			cin >> readValue;
-
-			jointName.str("");
-			jointName << "arm_joint_" << (i + 1);
-
-			desiredConfiguration.positions[i] = readValue;
-			armCommand.joint_names[i] = jointName.str();
-
-		};
-
-		cout << "Please type in value for gripper " << endl;
-		cin >> readValue;
-		desiredConfiguration.positions[numberOfJoints] = readValue;
-		armCommand.joint_names[numberOfJoints] = "gripper_joint";
-
-
-		armCommand.header.stamp = ros::Time::now();
-		armCommand.header.frame_id = "base_link";
-		armCommand.points.resize(1); // only one point so far
-		armCommand.points[0] = desiredConfiguration;
-
-		cout << "sending command ..." << endl;
-		armJointTrajectoryPublisher.publish(armCommand);
-		cout << "--------------------" << endl;
-		rate.sleep();
+YouBotBaseConfiguration::~YouBotBaseConfiguration() {
+	if (youBotBase) {
+		delete youBotBase;
+		youBotBase = 0;
 	}
 
-  return 0;
+
 }
+
+YouBotArmConfiguration::YouBotArmConfiguration() {
+	youBotArm = 0;
+
+	/* provide some default values for the joint names (might be overwritten) */
+	jointNames.clear();
+	jointNames.push_back("arm_joint_1");
+	jointNames.push_back("arm_joint_2");
+	jointNames.push_back("arm_joint_3");
+	jointNames.push_back("arm_joint_4");
+	jointNames.push_back("arm_joint_5");
+
+	gripperFingerNames.clear();
+	gripperFingerNames.push_back("gripper_finger_joint_l");
+	gripperFingerNames.push_back("gripper_finger_joint_r");
+}
+
+YouBotArmConfiguration::~YouBotArmConfiguration() {
+	if (youBotArm) {
+		delete youBotArm;
+		youBotArm = 0;
+	}
+	jointNames.clear();
+}
+
+YouBotConfiguration::YouBotConfiguration() {
+	youBotArmConfigurations.clear();
+	armNameToArmIndexMapping.clear();
+	hasBase = false;
+	hasArms = false;
+
+}
+
+YouBotConfiguration::~YouBotConfiguration() {
+	youBotArmConfigurations.clear();
+	armNameToArmIndexMapping.clear();
+}
+
+}  // namespace youBot
 
 /* EOF */

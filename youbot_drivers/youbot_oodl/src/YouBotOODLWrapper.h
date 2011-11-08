@@ -40,6 +40,10 @@
 #ifndef YOUBOTOODLWRAPPER_H_
 #define YOUBOTOODLWRAPPER_H_
 
+/* Stringification helper macros */
+#define mkstr2(X) #X
+#define mkstr(X) mkstr2(X)
+
 /* ROS includes */
 #include "geometry_msgs/Twist.h"
 #include "tf/transform_broadcaster.h"
@@ -48,9 +52,11 @@
 #include "trajectory_msgs/JointTrajectory.h"
 #include "sensor_msgs/JointState.h"
 
+#include "brics_actuator/JointPositions.h"
+#include "brics_actuator/JointVelocities.h"
+
 /* OODL includes */
-#include "youbot/YouBotBase.hpp"
-#include "youbot/YouBotManipulator.hpp"
+#include "YouBotConfiguration.h"
 
 namespace youBot {
 
@@ -76,21 +82,22 @@ public:
 
 	/**
 	 * @brief Initializes a youBot base.
+	 * @param baseName Name of the base. Used to open the configuration file e.g. youbot-base.cfg
 	 */
-	void initializeBase();
+	void initializeBase(std::string baseName);
 
 	/**
-	 * @brief Initializes a youBot arm.
+	 * @brief Initializes a youBot base.
+	 * @param armName Name of the base. Used to open the configuration file e.g. youbot-manipulator.cfg
+	 * @param enableStandardGripper If set to true, then the default gripper of the youBot will be initialized.
 	 */
-	void initializeArm();
+	void initializeArm(std::string armName, bool enableStandardGripper = true);
 
 	/**
 	 * @brief Stops all initialized elements.
 	 * Stops arm and/or base (if initialized).
 	 */
 	void stop();
-
-	/* Configuration: */
 
 
 	/* Communication: */
@@ -102,6 +109,7 @@ public:
 	void baseCommandCallback(const geometry_msgs::Twist& youbotBaseCommand);
 
 	/**
+	 * @deprecated
 	 * @brief Callback that is executed when a commend for the arm comes in.
 	 * @param youbotArmCommand Message that contains the desired joint configuration.
 	 *
@@ -109,6 +117,27 @@ public:
 	 * Velocity and acceleration values are ignored.
 	 */
 	void armCommandCallback(const trajectory_msgs::JointTrajectory& youbotArmCommand);
+
+	/**
+	 * @brief Callback that is executed when a position command for the arm comes in.
+	 * @param youbotArmCommand Message that contains the desired joint configuration.
+	 * @param armIndex Index that identifies the arm
+	 */
+	void armPositionsCommandCallback(const brics_actuator::JointPositionsConstPtr& youbotArmCommand, int armIndex);
+
+	/**
+	 * @brief Callback that is executed when a velocity command for the arm comes in.
+	 * @param youbotArmCommand Message that contains the desired joint configuration.
+	 * @param armIndex Index that identifies the arm
+	 */
+	void armVelocitiesCommandCallback(const brics_actuator::JointVelocitiesConstPtr& youbotArmCommand, int armIndex);
+
+	/**
+	 * @brief Callback that is executed when a position command for the gripper comes in.
+	 * @param youbotGripperCommand Message that contains the desired joint configuration.
+	 * @param armIndex Index that identifies the arm
+	 */
+	void gripperPositionsCommandCallback(const brics_actuator::JointPositionsConstPtr& youbotGripperCommand, int armIndex);
 
 	/**
 	 * @brief Publishes all sensor measurements. Both for base and arm.
@@ -125,15 +154,14 @@ public:
 	 */
 	void computeOODLSensorReadings();
 
+	/* Configuration: */
+
+	/// Handle the aggregates all parts of a youBot system
+	YouBotConfiguration youBotConfiguration;
+
 private:
 
 	YouBotOODLWrapper(); //forbid default constructor
-
-	///Flag to indicate if youBot has a base (set after successful initialization)
-	bool hasBase;
-
-	///Flag to indicate if youBot has an arm (set after successful initialization)
-	bool hasArm;
 
 
 	/// Degrees of freedom for the youBot manipulator
@@ -145,34 +173,11 @@ private:
 	/// Number of wheels attached to the base.
 	static const int youBotNumberOfWheels = 4;
 
-	/**
-	 * This variable memorizes the last successfully set value for the gripper,
-	 * so it can be published in the joint state message. This is necessary at the moment, as
-	 * it is not yet possible to measure the actual distance. Consider the gripper joint state
-	 * as an open loop value.
-	 */
-	double lastGripperCommand;
-
-
-    /// Handle to the base
-	youbot::YouBotBase* youBotBase;
-
-	/// Handle to the arm
-	youbot::YouBotManipulator* youBotArm;
-
-	/// Path to the configuration files, required by OODL (e.g. youbot-base.cfg)
-	std::string configurationFilePath;
-
 
 	std::string youBotChildFrameID;
 	std::string youBotOdometryFrameID;
 	std::string youBotOdometryChildFrameID;
 	std::string youBotArmFrameID;
-
-	std::vector<std::string> wheelNames;
-	std::vector<std::string> jointNames;
-	std::string gripperJointName;
-	std::vector<std::string> gripperFingerNames;
 
 
 	/// The ROS node handle
@@ -180,29 +185,6 @@ private:
 
 	/// ROS timestamp
 	ros::Time currentTime;
-
-
-	/**
-	 * Receives JointTrajectory messages for the arm.
-	 * Currently only the first configuration (JointTrajectoryPoint) per message is processed.
-	 */
-	ros::Subscriber baseCommandSubscriber;
-
-	/// Receives Twist messages for the base.
-	ros::Subscriber armCommandSubscriber;
-
-	/// Publishes Odometry messages
-	ros::Publisher baseOdometryPublisher;
-
-	/// Publishes JointState messages with angles/velocities for the wheels.
-	ros::Publisher baseJointStatePublisher;
-
-	/// Publishes JointState messages with angles for the arm.
-	ros::Publisher armJointStatePublisher;
-
-	/// Puglishes tf frames as odomery
-	tf::TransformBroadcaster odometryBroadcaster;
-
 
 
 	/// The published odometry message with distances in [m], angles in [RAD] and velocities in [m/s] and [RAD/s]
@@ -217,8 +199,8 @@ private:
 	/// The published joint state of the base (wheels) with angles in [RAD] and velocities in [RAD/s]
 	sensor_msgs::JointState baseJointStateMessage;
 
-	/// The published joint state of the arm with angles in [RAD]
-	sensor_msgs::JointState jointStateMessage; //TODO rename
+	/// Vector of the published joint states of per arm with angles in [RAD]
+	vector<sensor_msgs::JointState> armJointStateMessages;
 
 };
 
