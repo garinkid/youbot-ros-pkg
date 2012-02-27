@@ -1,6 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-	 <node name="motion_profile" pkg="youbot_android" type="youbot_motion_profile.py" output="screen"  />
-	 <node name="android_client" pkg="youbot_android" type="android_manipulator_client.py" output="screen"  />
-</launch>
-
