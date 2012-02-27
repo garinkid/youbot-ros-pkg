@@ -79,6 +79,8 @@ class Bluetooth_Thread(threading.Thread):
 		self.position_command.poisonStamp = self.poison_stamp
 		self.position_command.positions = self.positions
 
+		self.data_format = True
+
 		print 'Waiting for connection...'
 		self.client_sock, self.address = self.server_sock.accept()
 		print "Accepted connection from", self.address
@@ -96,14 +98,21 @@ class Bluetooth_Thread(threading.Thread):
 				print "Accepted connection from", self.address
 			else:
 				self.data = self.command.split(',')
-				if self.data[0] == 'base':
-					self.android_base(self.data)
-				elif self.data[0] == 'manipulator': 
-					self.android_manipulator(self.data)
-					# data will be received in range 0 - 100
-					# for i in range(len(self.data)):
-				elif self.data[0] == 'arm_joint_position': 
-					self.android_arm_joint_position(self.data)	
+				self.data_format = True
+				for i in range((len(self.data)) - 1):
+					try:
+						float(self.data[i+1])
+					except ValueError:
+						self.data_format = False
+				if self.data_format is True:
+					if self.data[0] == 'base':
+						self.android_base(self.data)
+					elif self.data[0] == 'manipulator': 
+						self.android_manipulator(self.data)
+						# data will be received in range 0 - 100
+						# for i in range(len(self.data)):
+					elif self.data[0] == 'arm_joint_position': 
+						self.android_arm_joint_position(self.data)	
 		
 	def android_base(self, data):
 		for i in range(3):
