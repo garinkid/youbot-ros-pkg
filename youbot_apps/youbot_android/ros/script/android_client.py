@@ -7,6 +7,7 @@ import sys
 import threading
 from brics_actuator.msg import *
 from geometry_msgs.msg import *
+from sensor_msgs.msg import *	
 from struct import unpack
 
 class Bluetooth_Thread(threading.Thread):
@@ -161,23 +162,74 @@ class youbot_android():
 		bluetooth_thread.setDaemon(True)
 		bluetooth_thread.start()
 
+		self.simulation = str(rospy.get_param(str(self.__class__.__name__) +'/simulation'))
+		
+		print 'self.simulation:', self.simulation
+
 		self.base_velocity = geometry_msgs.msg.Twist()
 		self.joint_velocity =  brics_actuator.msg.JointVelocities()
 		self.joint_position = brics_actuator.msg.JointPositions()
 		self.base_velocity_publisher = rospy.Publisher('/cmd_vel', geometry_msgs.msg.Twist)
 		self.joint_velocity_publisher = rospy.Publisher('/arm_1/arm_controller/velocity_command', brics_actuator.msg.JointVelocities)
-		self.joint_position_publisher = rospy.Publisher('/arm_1/arm_controller/position_command', brics_actuator.msg.JointPositions)
+		self.joint_position_publisher = rospy.Publisher('/arm_1/arm_controller/position_command', brics_actuator.msg.JointPositions)	
+
+		self.min_joint_limit = [False] * 5
+		self.max_joint_limit = [False] * 5
+
+		if self.simulation is "True":
+			rospy.Subscriber('/joint_states', sensor_msgs.msg.JointState, self.state_callback)
+		elif self.simulation is "False":
+			rospy.Subscriber('/arm_1/joint_states', sensor_msgs.msg.JointState, self.state_callback)
+		else:
+			print "Simulation parameter is set to default 'True' "
+			self.simulation = "True"
+			rospy.Subscriber('/joint_states', sensor_msgs.msg.JointState, self.state_callback)
+
 		while not rospy.is_shutdown():
 			if len(bluetooth_thread.data) > 0:
 				if bluetooth_thread.data[0] == 'base':
 					self.base_velocity = bluetooth_thread.base_velocity	
 					self.base_velocity_publisher.publish(self.base_velocity)	
-				elif bluetooth_thread.data[0] == 'manipulator':
-					self.joint_velocity = bluetooth_thread.command_velocity
-					self.joint_velocity_publisher.publish(self.joint_velocity)	
 				elif bluetooth_thread.data[0] == 'arm_joint_position':
 					self.joint_position = bluetooth_thread.position_command
 					self.joint_position_publisher.publish(self.joint_position)	
+				elif bluetooth_thread.data[0] == 'manipulator':
+					self.joint_velocity = bluetooth_thread.command_velocity
+					for i in range(5):
+						if (self.min_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value < 0.0) :
+							print 'joint ', (i + 1),   'joint limit reached, joint velocity set to zero'
+							self.joint_velocity.velocities[i].value = 0.0
+						elif (self.max_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value > 0.0) :
+							print 'joint ', (i + 1),   'joint limit reached, joint velocity set to zero'
+							self.joint_velocity.velocities[i].value = 0.0
+					self.joint_velocity_publisher.publish(self.joint_velocity)	
+	
+	def state_callback(self, msg):
+		# actual_limit
+		min_range = [0.0100693, 0.0100693, -5.02656, 0.0221240, 0.110620]
+		max_range = [5.84013, 2.61798, -0.015709, 3.4291, 5.64158]	
+		# soft_limit
+		for i in range(5):
+			min_range[i] = min_range[i] + 0.2
+			max_range[i] = max_range[i] - 0.2
+		current_position = [0.0] * 5
+
+		for i in range(5):
+			if self.simulation is True:
+				current_position[i] = msg.position[i+8]
+			else:
+				current_position[i] = msg.position[i]
+
+		for i in range(5):
+			if current_position[i] < min_range[i]:
+				self.min_joint_limit[i] = True
+				self.max_joint_limit[i] = False
+			elif current_position[i] > max_range[i]:
+				self.max_joint_limit[i] = True
+				self.min_joint_limit[i] = False
+			else:
+				self.min_joint_limit[i] = False
+				self.max_joint_limit[i] = False				
 
 if __name__ == '__main__':
 	rospy.init_node('youbot_android')
