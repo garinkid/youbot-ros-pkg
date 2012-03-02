@@ -87,7 +87,6 @@ class Bluetooth_Thread(threading.Thread):
 		print "Accepted connection from", self.address
 		while not rospy.is_shutdown():
 			self.command = self.client_sock.recv(1024)
-			print "received %s" % self.command
 			if self.command == 'onPause':
 				self.client_sock.close()
 				self.server_sock.close()
@@ -110,20 +109,22 @@ class Bluetooth_Thread(threading.Thread):
 						self.android_base(self.data)
 					elif self.data[0] == 'manipulator': 
 						self.android_manipulator(self.data)
-						# data will be received in range 0 - 100
-						# for i in range(len(self.data)):
 					elif self.data[0] == 'arm_joint_position': 
 						self.android_arm_joint_position(self.data)	
 		
 	def android_base(self, data):
 		for i in range(3):
-			data[i+1] = float(self.data[i+1]) * 0.01 # data will be received in range 0 - 100
-		self.base_velocity.linear.x = data[1] *  0.3 # normalization_linear_x
-		self.base_velocity.linear.y = data[2] *  0.3 # normalization_linear_y
-		self.base_velocity.angular.z = data[3] * 0.5 # normalization_angular_z
+			data[i+1] = float(self.data[i+1]) 
+		max_translational_velocity_x = 0.25 # m/s
+		max_translational_velocity_y = 0.25 # m/s
+		max_angular_velocity_z = 0.4 # rad/s
+		self.base_velocity.linear.x = data[1] *  max_translational_velocity_x
+		self.base_velocity.linear.y = data[2] * max_translational_velocity_y 
+		self.base_velocity.angular.z = data[3]  * max_angular_velocity_z
+		print 'base velocity --> linear x:', round(self.base_velocity.linear.x, 2), 'm/s, linear y:',  round(self.base_velocity.linear.y, 2), 'm/s, angular z',  round(self.base_velocity.angular.z, 2), 'rad/s'
 
 	def android_manipulator(self, data):
-		maximum_velocity = 0.5
+		maximum_velocity = 1.57 # radian / second
 		self.joint_value_1.value = float(data[1]) * maximum_velocity
 		self.joint_value_2.value = float(data[2]) * maximum_velocity
 		self.joint_value_3.value = float(data[3]) * maximum_velocity
@@ -131,21 +132,22 @@ class Bluetooth_Thread(threading.Thread):
 		self.joint_value_5.value = float(data[5]) * maximum_velocity
 		self.velocities = [self.joint_value_1, self.joint_value_2, self.joint_value_3, self.joint_value_4, self.joint_value_5]
 		self.command_velocity.velocities = self.velocities
+		print 'velocity set(rad/s) --> joint 1:', round(self.joint_value_1.value, 2) , ', joint 2:', round(self.joint_value_2.value, 2), ', joint 3: ',  round(self.joint_value_3.value, 2) , ', joint 4:', round(self.joint_value_4.value, 2), ', joint 5: ', round(self.joint_value_5.value, 2)
 
 	def android_arm_joint_position(self, data):
   		# blender reference offset = [169, 155, -142, 168, 171]
+		print 'set position(degree) --> joint 1:', data[1], ', joint 2:', data[2],  ', joint 3:', data[3],  ', joint 4:', data[4], ', joint 5:', data[5]
+
  		offset = [169, 65, -142, 108, 171]
 		for i in range(5):
 			data[i+1] = math.radians(float(data[i+1]) + offset[i])
 		min_range = [0.0100693, 0.0100693, -5.02656, 0.0221240, 0.110620]
 		max_range = [5.84013, 2.61798, -0.015709, 3.4291, 5.64158]
-		print data
 		for j in range(5):
 			if data[j+1] < min_range[j]:
 				data[j+1] = min_range[j]
 			elif data[j+1] > max_range[j]:
 				data[j+1] = max_range[j]	
-		print data
 		self.joint_value_1_position.value = data[1]
 		self.joint_value_2_position.value = data[2]
 		self.joint_value_3_position.value = data[3]
@@ -162,9 +164,22 @@ class youbot_android():
 		bluetooth_thread.setDaemon(True)
 		bluetooth_thread.start()
 
-		self.simulation = str(rospy.get_param(str(self.__class__.__name__) +'/simulation'))
-		
-		print 'self.simulation:', self.simulation
+		# check parameter		
+		if rospy.has_param(str(self.__class__.__name__) +'/simulation'):
+			self.simulation = rospy.get_param(str(self.__class__.__name__) +'/simulation')
+		else:
+			print (str(self.__class__.__name__) +'/simulation parameter is set to default')
+			self.simulation = True
+		print 'Simulation:', self.simulation
+
+		if rospy.has_param(str(self.__class__.__name__) +'/soft_stop_threshold'):
+			self.soft_stop_threshold = rospy.get_param(str(self.__class__.__name__) +'/soft_stop_threshold')
+		else:
+			print  (str(self.__class__.__name__) +'/soft_stop_threshold parameter is set to default')
+			self.soft_stop_threshold = 0.5
+		print 'Soft stop threshold:', self.soft_stop_threshold, ' rad'		
+ 
+
 
 		self.base_velocity = geometry_msgs.msg.Twist()
 		self.joint_velocity =  brics_actuator.msg.JointVelocities()
@@ -176,13 +191,13 @@ class youbot_android():
 		self.min_joint_limit = [False] * 5
 		self.max_joint_limit = [False] * 5
 
-		if self.simulation is "True":
+		if self.simulation is True:
 			rospy.Subscriber('/joint_states', sensor_msgs.msg.JointState, self.state_callback)
-		elif self.simulation is "False":
+		elif self.simulation is False:
 			rospy.Subscriber('/arm_1/joint_states', sensor_msgs.msg.JointState, self.state_callback)
 		else:
 			print "Simulation parameter is set to default 'True' "
-			self.simulation = "True"
+			self.simulation = True
 			rospy.Subscriber('/joint_states', sensor_msgs.msg.JointState, self.state_callback)
 
 		while not rospy.is_shutdown():
@@ -210,8 +225,8 @@ class youbot_android():
 		max_range = [5.84013, 2.61798, -0.015709, 3.4291, 5.64158]	
 		# soft_limit
 		for i in range(5):
-			min_range[i] = min_range[i] + 0.2
-			max_range[i] = max_range[i] - 0.2
+			min_range[i] = min_range[i] + self.soft_stop_threshold
+			max_range[i] = max_range[i] - self.soft_stop_threshold 
 		current_position = [0.0] * 5
 
 		for i in range(5):
