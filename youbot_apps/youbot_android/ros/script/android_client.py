@@ -124,7 +124,7 @@ class Bluetooth_Thread(threading.Thread):
 		print 'base velocity --> linear x:', round(self.base_velocity.linear.x, 2), 'm/s, linear y:',  round(self.base_velocity.linear.y, 2), 'm/s, angular z',  round(self.base_velocity.angular.z, 2), 'rad/s'
 
 	def android_manipulator(self, data):
-		maximum_velocity = 1.57 # radian / second
+		maximum_velocity = 1.00 # radian / second
 		self.joint_value_1.value = float(data[1]) * maximum_velocity
 		self.joint_value_2.value = float(data[2]) * maximum_velocity
 		self.joint_value_3.value = float(data[3]) * maximum_velocity
@@ -132,11 +132,11 @@ class Bluetooth_Thread(threading.Thread):
 		self.joint_value_5.value = float(data[5]) * maximum_velocity
 		self.velocities = [self.joint_value_1, self.joint_value_2, self.joint_value_3, self.joint_value_4, self.joint_value_5]
 		self.command_velocity.velocities = self.velocities
-		print 'velocity set(rad/s) --> joint 1:', round(self.joint_value_1.value, 2) , ', joint 2:', round(self.joint_value_2.value, 2), ', joint 3: ',  round(self.joint_value_3.value, 2) , ', joint 4:', round(self.joint_value_4.value, 2), ', joint 5: ', round(self.joint_value_5.value, 2)
+		print 'velocity set(rad/s) --> joint 1: '+ str(round(self.joint_value_1.value, 2)) +',', 'joint 2: ' +str(round(self.joint_value_2.value, 2)) + ',', 'joint 3: ' + str(round(self.joint_value_3.value, 2)) + ',', 'joint 4: ' +  str(round(self.joint_value_4.value, 2)) + ',' , 'joint 5: ' + str(round(self.joint_value_5.value, 2)) 
 
 	def android_arm_joint_position(self, data):
   		# blender reference offset = [169, 155, -142, 168, 171]
-		print 'set position(degree) --> joint 1:', data[1], ', joint 2:', data[2],  ', joint 3:', data[3],  ', joint 4:', data[4], ', joint 5:', data[5]
+		print 'set position(degree) --> joint 1:' + data[1] + ',' , 'joint 2:' + data[2] + ',',  'joint 3:' + data[3] + ',',  'joint 4:' + data[4] + ',', 'joint 5:' + data[5]
 
  		offset = [169, 65, -142, 108, 171]
 		for i in range(5):
@@ -178,8 +178,6 @@ class youbot_android():
 			print  (str(self.__class__.__name__) +'/soft_stop_threshold parameter is set to default')
 			self.soft_stop_threshold = 0.5
 		print 'Soft stop threshold:', self.soft_stop_threshold, ' rad'		
- 
-
 
 		self.base_velocity = geometry_msgs.msg.Twist()
 		self.joint_velocity =  brics_actuator.msg.JointVelocities()
@@ -200,24 +198,28 @@ class youbot_android():
 			self.simulation = True
 			rospy.Subscriber('/joint_states', sensor_msgs.msg.JointState, self.state_callback)
 
+		self.base_velocity = bluetooth_thread.base_velocity	
+		self.joint_position = bluetooth_thread.position_command
+		self.joint_velocity = bluetooth_thread.command_velocity
 		while not rospy.is_shutdown():
 			if len(bluetooth_thread.data) > 0:
 				if bluetooth_thread.data[0] == 'base':
 					self.base_velocity = bluetooth_thread.base_velocity	
-					self.base_velocity_publisher.publish(self.base_velocity)	
 				elif bluetooth_thread.data[0] == 'arm_joint_position':
 					self.joint_position = bluetooth_thread.position_command
-					self.joint_position_publisher.publish(self.joint_position)	
 				elif bluetooth_thread.data[0] == 'manipulator':
-					self.joint_velocity = bluetooth_thread.command_velocity
-					for i in range(5):
-						if (self.min_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value < 0.0) :
-							print 'joint ', (i + 1),   'joint limit reached, joint velocity set to zero'
-							self.joint_velocity.velocities[i].value = 0.0
-						elif (self.max_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value > 0.0) :
-							print 'joint ', (i + 1),   'joint limit reached, joint velocity set to zero'
-							self.joint_velocity.velocities[i].value = 0.0
-					self.joint_velocity_publisher.publish(self.joint_velocity)	
+					self.joint_velocity = bluetooth_thread.command_velocity	
+			for i in range(5):
+				if (self.min_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value < 0.0) :
+					print 'joint', (i + 1),  'joint limit reached, joint', (i+1),  'velocity set to 0.0 rad/s'
+					self.joint_velocity.velocities[i].value = 0.0
+				elif (self.max_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value > 0.0) :
+					print 'joint', (i + 1),   'joint limit reached, joint', (i+1),  'velocity set to 0.0 rad/s'
+					self.joint_velocity.velocities[i].value = 0.0
+			self.base_velocity_publisher.publish(self.base_velocity)	
+			self.joint_position_publisher.publish(self.joint_position)
+			self.joint_velocity_publisher.publish(self.joint_velocity)	
+			
 	
 	def state_callback(self, msg):
 		# actual_limit
