@@ -330,7 +330,10 @@ class youbot_android():
 	def velocity_function(self, theta):
 		game_sensitivity = theta[2]
 		velocity_set = [0.0] * 4
+		# 1
 		default_arm_pose_maze = [2.9172909934892601, 0.56619152215177582, -1.231205868905108, 2.5834732319552178, 2.9052652400289047]
+		# 2 not okay, joint 4 is too close to its joint limit
+		# default_arm_pose_maze = [2.9172909934892601, 0.54797632628528892, -1.6732750791549957, 3.0242696547025631, 2.9052873639208312]
 		delta_thetaX = math.radians(theta[0]) - (self.current_position[4] - default_arm_pose_maze[4])
 		delta_thetaY = math.radians(theta[1]) - (self.current_position[3] - default_arm_pose_maze[3])
 		# delta_thetaY =  
