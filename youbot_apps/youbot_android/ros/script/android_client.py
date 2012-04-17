@@ -188,7 +188,6 @@ class Bluetooth_Thread(threading.Thread):
 	def android_arm_joint_position(self, data):
   		# blender reference offset = [169, 155, -142, 168, 171]
 		print 'set position(degree) --> joint 1:' + data[1] + ',' , 'joint 2:' + data[2] + ',',  'joint 3:' + data[3] + ',',  'joint 4:' + data[4] + ',', 'joint 5:' + data[5]
-
  		offset = [169, 65, -142, 108, 171]
 		for i in range(5):
 			data[i+1] = math.radians(float(data[i+1]) + offset[i])
@@ -285,8 +284,7 @@ class youbot_android():
 					self.joint_velocity.velocities[4].value = velocity[0]
 					self.joint_velocity.velocities[3].value = velocity[1]
 					self.joint_velocity.velocities[2].value = velocity[2]
-					self.joint_velocity.velocities[1].value = velocity[3]
-					'''					
+					self.joint_velocity.velocities[1].value = velocity[3]				
 					for i in range (1,4):
 						if (self.min_joint_limit[i] is True) and (velocity < 0):
 							self.joint_velocity.velocities[i].value = 0.0
@@ -294,7 +292,6 @@ class youbot_android():
 						elif (self.max_joint_limit[i] is True) and (velocity > 0.0):
 							self.joint_velocity.velocities[i].value = 0.0
 							print "joint ", i, " reach max limit"
-					'''
 					self.joint_velocity.velocities[0].value = 0.0
 					self.joint_velocity_publisher.publish(self.joint_velocity)	
 
@@ -335,12 +332,19 @@ class youbot_android():
 		# 2 not okay, joint 4 is too close to its joint limit
 		# default_arm_pose_maze = [2.9172909934892601, 0.54797632628528892, -1.6732750791549957, 3.0242696547025631, 2.9052873639208312]
 		delta_thetaX = math.radians(theta[0]) - (self.current_position[4] - default_arm_pose_maze[4])
-		delta_thetaY = math.radians(theta[1]) - (self.current_position[3] - default_arm_pose_maze[3])
+		delta_thetaY1 = math.radians(theta[1]) - (self.current_position[3] - default_arm_pose_maze[3])
+		delta_thetaY2 = - (math.radians(theta[1]) - (default_arm_pose_maze[2] - self.current_position[2]) )
+		delta_thetaY3 = math.radians(theta[1]) - (self.current_position[1] - default_arm_pose_maze[1])
+		'''		
+		print 'delta 1', (self.current_position[3] - default_arm_pose_maze[3])
+		print 'delta 2', (self.current_position[2] - default_arm_pose_maze[2])
+		print 'delta 3', (self.current_position[1] - default_arm_pose_maze[1])
+		'''		
 		# delta_thetaY =  
 		velocity_set[0] = delta_thetaX * 1.5 * game_sensitivity
-		velocity_set[1] = delta_thetaY * 1.0 * game_sensitivity
-		velocity_set[2] = delta_thetaY * -1.2 * game_sensitivity
-		velocity_set[3] = delta_thetaY * 0.8 * game_sensitivity
+		velocity_set[1] = delta_thetaY1 * 1.5 * game_sensitivity
+		velocity_set[2] = delta_thetaY2 * 0.8 * game_sensitivity
+		velocity_set[3] = delta_thetaY3 * 0.8 * game_sensitivity
 		#print 'delta_theta:', delta_theta, ', velocity:', velocity_set
 		#velocity_value = self.maze_velocity_controller.control(velocity_set, self.current_velocity)
 		return velocity_set

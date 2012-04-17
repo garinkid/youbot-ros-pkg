@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+	 <node name="android_client" pkg="youbot_android" type="android_client.py" output="screen"  />
+		<param name="youbot_android/simulation" value="True"  type="bool" /> <!-- True or False -->
+		<param name="youbot_android/soft_stop_threshold" value="0.2"  type="double" /> <!-- default value: 0.5 radian -->
+</launch>
+

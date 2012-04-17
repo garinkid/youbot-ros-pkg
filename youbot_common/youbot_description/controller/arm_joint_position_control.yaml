@@ -12,8 +12,10 @@ arm_controller:
       p: 10
       d: 2.0
     arm_joint_2:
-      p: 10
-      d: 2.0
+      p: 0.1
+      i: 0.2
+      
+      d: 0.3
     arm_joint_3: 
       p: 10
       d: 2.0

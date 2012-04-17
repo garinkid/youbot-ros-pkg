@@ -76,7 +76,7 @@ bool YouBotUniversalController::init(pr2_mechanism_model::RobotState *robotPtr, 
 
 
 
-    ROS_INFO("Initializing joint position control...\n");
+    ROS_DEBUG("Initializing joint position control...\n");
 
     // Gets all of the joint pointers from the RobotState to a joints vector
     XmlRpc::XmlRpcValue jointNames;
@@ -169,8 +169,16 @@ void YouBotUniversalController::update()
     ros::Duration dt = currentTime - lastTime;
     lastTime = currentTime;
 
+    	
+
     for (unsigned int i = 0; i < joints.size(); i++)
     {
+
+	
+	double p, _i, d, i_max, i_min;
+        pids[i].getGains(p, _i, d, i_max, i_min);
+	ROS_DEBUG("PID for joint %s: p=%f, i=%f, d=%f, i_max=%f, i_min=%f\n", joints[i]->joint_->name.c_str(), p, _i, d, i_max, i_min);	
+
         switch (currentControlMode)
         {
         case YouBotUniversalController::POSITION :

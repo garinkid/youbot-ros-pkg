@@ -74,7 +74,7 @@ bool JointPositionController::init(pr2_mechanism_model::RobotState *robotPtr, ro
 
 
 
-    ROS_INFO("Initializing joint position control...\n");
+    ROS_DEBUG("Initializing joint position control...\n");
 
     // Gets all of the joint pointers from the RobotState to a joints vector
     XmlRpc::XmlRpcValue jointNames;
@@ -128,12 +128,16 @@ bool JointPositionController::init(pr2_mechanism_model::RobotState *robotPtr, ro
     if (!nodeHandle.getParam("gains", gainsNS))
         gainsNS = nodeHandle.getNamespace() + "/gains";
 
-    ROS_INFO("gains: %s\n", gainsNS.c_str());
+    ROS_DEBUG("gains: %s\n", gainsNS.c_str());
 
     pids.resize(joints.size());
 
+    ROS_DEBUG("joints.size() = %d \n", joints.size());
+
     for (unsigned int i = 0; i < joints.size(); ++i)
     {
+	ROS_DEBUG("processing  %s/%s \n", gainsNS.c_str(), joints[i]->joint_->name.c_str());
+
         if (!pids[i].init(ros::NodeHandle(gainsNS + "/" + joints[i]->joint_->name)))
         {
             ROS_ERROR("Can't setup PID for the joint %s. (namespace: %s)", joints[i]->joint_->name.c_str(), nodeHandle.getNamespace().c_str());
