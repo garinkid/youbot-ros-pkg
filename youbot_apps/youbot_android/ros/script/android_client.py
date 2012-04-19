@@ -17,14 +17,6 @@ from struct import unpack
 
 class Bluetooth_Thread(threading.Thread):
 	def run(self):
-		self.server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-		self.port = 1
-		self.command = ''
-		self.data = []
-
-
-		self.server_sock.bind(("",self.port))
-		self.server_sock.listen(1)
 
 		unit = 's^-1 rad' #'rad'
 		self.maximum_velocity = 0.5
@@ -107,11 +99,33 @@ class Bluetooth_Thread(threading.Thread):
 
 		self.data_format = True
 
+
+		self.server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+		self.port = 1
+		self.command = ''
+		self.data = []
+
+		self.server_sock.bind(("",self.port))
+		self.server_sock.listen(1)
+
 		print 'Waiting for connection...'
 		self.client_sock, self.address = self.server_sock.accept()
 		print "Accepted connection from", self.address
 		while not rospy.is_shutdown():
+			'''
 			self.command = self.client_sock.recv(1024)
+			'''
+			while True:
+				try:
+		        		self.command = self.client_sock.recv(1024)
+					break
+				except IOError:
+		        		print 'connection restarted'
+					self.client_sock.close()
+					print 'Waiting for connection...'
+					self.client_sock, self.address = self.server_sock.accept()
+					print "Accepted connection from", self.address
+
 			if self.command == 'onPause':
 				# self.low_pass_filters = [low_pass_filter.moving_average(60)] * 2
 				self.delta_theta = [0.0] * 2
@@ -284,15 +298,15 @@ class youbot_android():
 					self.joint_velocity.velocities[4].value = velocity[0]
 					self.joint_velocity.velocities[3].value = velocity[1]
 					self.joint_velocity.velocities[2].value = velocity[2]
-					self.joint_velocity.velocities[1].value = velocity[3]				
-					for i in range (1,4):
-						if (self.min_joint_limit[i] is True) and (velocity < 0):
+					self.joint_velocity.velocities[1].value = velocity[3]	
+					self.joint_velocity.velocities[0].value = 0.0			
+					for i in range(5):
+						if (self.min_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value < 0.0) :
+							print 'joint', (i+1),  'joint limit reached, joint', (i+1),  'velocity set to 0.0 rad/s'
 							self.joint_velocity.velocities[i].value = 0.0
-							print "joint ", i, " reach min limit"
-						elif (self.max_joint_limit[i] is True) and (velocity > 0.0):
+						elif (self.max_joint_limit[i] is True) and (self.joint_velocity.velocities[i].value > 0.0) :
+							print 'joint', (i + 1),   'joint limit reached, joint', (i+1),  'velocity set to 0.0 rad/s'
 							self.joint_velocity.velocities[i].value = 0.0
-							print "joint ", i, " reach max limit"
-					self.joint_velocity.velocities[0].value = 0.0
 					self.joint_velocity_publisher.publish(self.joint_velocity)	
 
 
@@ -341,10 +355,10 @@ class youbot_android():
 		print 'delta 3', (self.current_position[1] - default_arm_pose_maze[1])
 		'''		
 		# delta_thetaY =  
-		velocity_set[0] = delta_thetaX * 1.5 * game_sensitivity
-		velocity_set[1] = delta_thetaY1 * 1.5 * game_sensitivity
-		velocity_set[2] = delta_thetaY2 * 0.8 * game_sensitivity
-		velocity_set[3] = delta_thetaY3 * 0.8 * game_sensitivity
+		velocity_set[0] = delta_thetaX * 2 * game_sensitivity
+		velocity_set[1] = delta_thetaY1 * 2 * game_sensitivity
+		velocity_set[2] = delta_thetaY2 * 4 * game_sensitivity
+		velocity_set[3] = delta_thetaY3 * 2 * game_sensitivity
 		#print 'delta_theta:', delta_theta, ', velocity:', velocity_set
 		#velocity_value = self.maze_velocity_controller.control(velocity_set, self.current_velocity)
 		return velocity_set
